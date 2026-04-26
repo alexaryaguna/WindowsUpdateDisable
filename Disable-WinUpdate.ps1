@@ -1,6 +1,6 @@
 # =====================================================================
 # Script: Disable-WinUpdate.ps1
-# Deskripsi: Mematikan Windows Update secara PERMANEN (Titan-Tier)
+# Deskripsi: Mematikan Windows Update secara PERMANEN (Cosmic-Tier)
 # Kompatibel: Windows 7, 10, 11 (Semua Versi)
 # =====================================================================
 
@@ -11,13 +11,11 @@ if (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]:
     exit
 }
 
-Write-Host "Mulai menonaktifkan Windows Update secara Titan-Tier..." -ForegroundColor Cyan
+Write-Host "Mulai menonaktifkan Windows Update secara penuh..." -ForegroundColor Cyan
 
-# 2. [TITAN-TIER] Ghost Download Wiper (Menghapus antrean unduhan BITS)
-Write-Host "Menghapus sisa antrean unduhan update di latar belakang..." -ForegroundColor Cyan
+# 2. Ghost Download Wiper (Menghapus antrean unduhan BITS)
 try {
     & bitsadmin.exe /reset /allusers | Out-Null
-    Write-Host "  -> Antrean unduhan (pending update) berhasil dihancurkan." -ForegroundColor Green
 } catch {}
 
 # 3. Hentikan & Matikan Layanan Windows Update + Hapus Auto-Restart
@@ -29,13 +27,12 @@ foreach ($svc in $services) {
         try {
             Set-ItemProperty -Path $regPath -Name "Start" -Value 4 -ErrorAction SilentlyContinue
             & sc.exe failure $svc reset= 0 actions= "" | Out-Null
-            Write-Host "Startup & Auto-Recovery layanan $svc dimatikan." -ForegroundColor Green
         } catch {}
     }
 }
+Write-Host "Layanan & Recovery Windows Update dimatikan." -ForegroundColor Green
 
 # 4. Kunci Folder Download (SoftwareDistribution)
-Write-Host "Mengunci Gudang Download Update (SoftwareDistribution)..." -ForegroundColor Cyan
 $sdPath = "$env:SystemRoot\SoftwareDistribution"
 if (Test-Path $sdPath) {
     if ((Get-Item $sdPath) -is [System.IO.DirectoryInfo]) {
@@ -47,12 +44,10 @@ if (!(Test-Path $sdPath)) {
         New-Item -ItemType File -Path $sdPath -Force | Out-Null
         icacls.exe $sdPath /deny "Everyone:(W,WEA,WA)" /q | Out-Null
         icacls.exe $sdPath /deny "NT AUTHORITY\SYSTEM:(W,WEA,WA)" /q | Out-Null
-        Write-Host "  -> Gudang Download berhasil dihancurkan & dikunci." -ForegroundColor Green
     } catch {}
 }
 
 # 5. Terapkan Group Policy & WSUS Blackhole
-Write-Host "Menerapkan Group Policy & WSUS Blackhole..." -ForegroundColor Cyan
 $wuPath = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate"
 $auPath = "$wuPath\AU"
 if (!(Test-Path $wuPath)) { New-Item -Path $wuPath -Force | Out-Null }
@@ -63,7 +58,6 @@ Set-ItemProperty -Path $wuPath -Name "WUServer" -Value "http://127.0.0.1" -Error
 Set-ItemProperty -Path $wuPath -Name "WUStatusServer" -Value "http://127.0.0.1" -ErrorAction SilentlyContinue
 Set-ItemProperty -Path $wuPath -Name "UpdateServiceUrlAlternate" -Value "http://127.0.0.1" -ErrorAction SilentlyContinue
 Set-ItemProperty -Path $auPath -Name "UseWUServer" -Value 1 -ErrorAction SilentlyContinue
-Write-Host "  -> Server update berhasil dibelokkan ke Blackhole (127.0.0.1)." -ForegroundColor Green
 
 # 6. Mematikan Scheduled Tasks
 if (Get-Command "Disable-ScheduledTask" -ErrorAction SilentlyContinue) {
@@ -73,11 +67,9 @@ if (Get-Command "Disable-ScheduledTask" -ErrorAction SilentlyContinue) {
     }
 }
 
-# 7. Take Ownership, Rename Executables & [TITAN-TIER] Update Assistant Killer
-Write-Host "Memblokir eksekutor & Menerapkan Firewall Block..." -ForegroundColor Cyan
+# 7. Take Ownership, Rename Executables & Update Assistant Killer
 $executables = @("usoclient.exe", "wuauclt.exe", "waasmedic.exe", "sihclient.exe", "mousocoreworker.exe")
 $sys32 = "$env:SystemRoot\System32"
-
 foreach ($exe in $executables) {
     $target = "$sys32\$exe"
     if (Test-Path $target) {
@@ -92,7 +84,6 @@ foreach ($exe in $executables) {
     } catch {}
 }
 
-# [TITAN-TIER] Update Assistant Killer
 $upgraderPaths = @("$env:SystemDrive\Windows10Upgrade", "$env:SystemDrive\WindowsUpdate")
 foreach ($dir in $upgraderPaths) {
     $app = "$dir\Windows10UpgraderApp.exe"
@@ -100,7 +91,6 @@ foreach ($dir in $upgraderPaths) {
         takeown.exe /F $app /A /runas | Out-Null
         icacls.exe $app /grant "Administrators:F" /q | Out-Null
         try { Rename-Item -Path $app -NewName "Windows10UpgraderApp.exe.bak" -Force -ErrorAction SilentlyContinue } catch {}
-        Write-Host "  -> Pemaksa Update (Windows Update Assistant) berhasil diblokir." -ForegroundColor Green
     }
 }
 
@@ -114,7 +104,7 @@ try {
     }
 } catch {}
 
-# 9. [TITAN-TIER] Hilangkan Tombol "Update and Restart" di Start Menu & Settings UI
+# 9. Hilangkan Tombol Update di UI & Menu Start
 $uxPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer"
 if (!(Test-Path $uxPath)) { New-Item -Path $uxPath -Force | Out-Null }
 Set-ItemProperty -Path $uxPath -Name "SettingsPageVisibility" -Value "hide:windowsupdate" -ErrorAction SilentlyContinue
@@ -125,9 +115,20 @@ foreach ($p in $auPaths) {
     Set-ItemProperty -Path $p -Name "NoAUAsDefaultShutdownOption" -Value 1 -ErrorAction SilentlyContinue
     Set-ItemProperty -Path $p -Name "NoAUShutdownOption" -Value 1 -ErrorAction SilentlyContinue
 }
-Write-Host "Tombol 'Update and Restart' di Start Menu & Settings telah dihilangkan." -ForegroundColor Green
 
-Write-Host "`nPROSES SELESAI. Windows Update telah DIMATIKAN SECARA TITAN-TIER (END-GAME)!" -ForegroundColor Green
-Write-Host "Sistem tidak akan pernah bisa update lagi secara otomatis." -ForegroundColor Yellow
+# 10. [COSMIC-TIER] Microsoft Store Auto-Update Blocker
+Write-Host "Memblokir Auto-Update melalui Microsoft Store..." -ForegroundColor Cyan
+$storePath = "HKLM:\SOFTWARE\Policies\Microsoft\WindowsStore"
+if (!(Test-Path $storePath)) { New-Item -Path $storePath -Force | Out-Null }
+Set-ItemProperty -Path $storePath -Name "AutoDownload" -Value 4 -ErrorAction SilentlyContinue
+Write-Host "  -> Microsoft Store Auto-Update berhasil dimatikan." -ForegroundColor Green
+
+# 11. [COSMIC-TIER] Pembungkam Notifikasi Total (Notification Silencer)
+Write-Host "Membungkam semua notifikasi pembaruan sistem..." -ForegroundColor Cyan
+Set-ItemProperty -Path $wuPath -Name "SetDisableUXWUAccess" -Value 1 -ErrorAction SilentlyContinue
+Set-ItemProperty -Path $wuPath -Name "DisableWindowsUpdateAccess" -Value 1 -ErrorAction SilentlyContinue
+Write-Host "  -> Notifikasi peringatan Update berhasil dibungkam secara total." -ForegroundColor Green
+
+Write-Host "`nPROSES SELESAI. Windows Update telah DIMATIKAN SECARA TOTAL!" -ForegroundColor Green
 Write-Host "Silakan Restart komputer Anda agar efeknya maksimal." -ForegroundColor Yellow
 Pause

@@ -1,6 +1,6 @@
 # =====================================================================
 # Script: Enable-WinUpdate.ps1
-# Deskripsi: Menghidupkan kembali Windows Update (Revert Titan-Tier)
+# Deskripsi: Menghidupkan kembali Windows Update (Revert Cosmic-Tier)
 # Kompatibel: Windows 7, 10, 11 (Semua Versi)
 # =====================================================================
 
@@ -11,17 +11,15 @@ if (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]:
     exit
 }
 
-Write-Host "Mulai menghidupkan kembali Windows Update (Membersihkan Titan-Tier)..." -ForegroundColor Cyan
+Write-Host "Mulai menghidupkan kembali Windows Update..." -ForegroundColor Cyan
 
 # 2. Buka Kunci Folder Download (SoftwareDistribution)
-Write-Host "Membuka kunci Gudang Download (SoftwareDistribution)..." -ForegroundColor Cyan
 $sdPath = "$env:SystemRoot\SoftwareDistribution"
 if (Test-Path $sdPath) {
     if ((Get-Item $sdPath) -is [System.IO.FileInfo]) {
         try {
             icacls.exe $sdPath /reset /q | Out-Null
             Remove-Item -Path $sdPath -Force -ErrorAction SilentlyContinue
-            Write-Host "  -> Berhasil menghapus file pengunci SoftwareDistribution." -ForegroundColor Green
         } catch {}
     }
 }
@@ -34,26 +32,31 @@ foreach ($svc in $services.Keys) {
         try {
             Set-ItemProperty -Path $regPath -Name "Start" -Value $services[$svc] -ErrorAction SilentlyContinue
             & sc.exe failure $svc reset= 86400 actions= restart/60000/restart/60000/restart/60000 | Out-Null
-            Write-Host "Startup & Recovery layanan $svc dikembalikan ke default." -ForegroundColor Green
         } catch {}
     }
 }
 
-# 4. Menghapus WSUS Blackhole & Group Policy
-Write-Host "Menghapus Group Policy & WSUS Blackhole..." -ForegroundColor Cyan
+# 4. Menghapus WSUS Blackhole, Group Policy & [COSMIC-TIER] Silencer
 $wuPath = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate"
 $auPath = "$wuPath\AU"
 if (Test-Path $wuPath) {
     Remove-ItemProperty -Path $wuPath -Name "WUServer" -ErrorAction SilentlyContinue
     Remove-ItemProperty -Path $wuPath -Name "WUStatusServer" -ErrorAction SilentlyContinue
     Remove-ItemProperty -Path $wuPath -Name "UpdateServiceUrlAlternate" -ErrorAction SilentlyContinue
+    # Revert Notification Silencer
+    Remove-ItemProperty -Path $wuPath -Name "SetDisableUXWUAccess" -ErrorAction SilentlyContinue
+    Remove-ItemProperty -Path $wuPath -Name "DisableWindowsUpdateAccess" -ErrorAction SilentlyContinue
 }
 if (Test-Path $auPath) {
     Remove-ItemProperty -Path $auPath -Name "UseWUServer" -ErrorAction SilentlyContinue
     Remove-ItemProperty -Path $auPath -Name "NoAutoUpdate" -ErrorAction SilentlyContinue
 }
 
-# 5. Menghidupkan Scheduled Tasks
+# 5. [COSMIC-TIER] Menghidupkan Auto-Update Microsoft Store
+$storePath = "HKLM:\SOFTWARE\Policies\Microsoft\WindowsStore"
+if (Test-Path $storePath) { Remove-ItemProperty -Path $storePath -Name "AutoDownload" -ErrorAction SilentlyContinue }
+
+# 6. Menghidupkan Scheduled Tasks
 if (Get-Command "Enable-ScheduledTask" -ErrorAction SilentlyContinue) {
     $taskPaths = @("\Microsoft\Windows\WindowsUpdate\", "\Microsoft\Windows\UpdateOrchestrator\")
     foreach ($path in $taskPaths) {
@@ -61,7 +64,7 @@ if (Get-Command "Enable-ScheduledTask" -ErrorAction SilentlyContinue) {
     }
 }
 
-# 6. Memulihkan Executables, Firewall, & [REVERT TITAN] Update Assistant
+# 7. Memulihkan Executables, Firewall, & Update Assistant
 $executables = @("usoclient.exe", "wuauclt.exe", "waasmedic.exe", "sihclient.exe", "mousocoreworker.exe")
 $sys32 = "$env:SystemRoot\System32"
 foreach ($exe in $executables) {
@@ -70,14 +73,13 @@ foreach ($exe in $executables) {
     try { netsh advfirewall firewall delete rule name="Block WinUpdate $exe" | Out-Null } catch {}
 }
 
-# [REVERT TITAN] Update Assistant
 $upgraderPaths = @("$env:SystemDrive\Windows10Upgrade", "$env:SystemDrive\WindowsUpdate")
 foreach ($dir in $upgraderPaths) {
     $bak = "$dir\Windows10UpgraderApp.exe.bak"
     if (Test-Path $bak) { try { Rename-Item -Path $bak -NewName "Windows10UpgraderApp.exe" -Force -ErrorAction SilentlyContinue } catch {} }
 }
 
-# 7. Memulihkan File Hosts
+# 8. Memulihkan File Hosts
 $hostsPath = "$env:SystemRoot\System32\drivers\etc\hosts"
 try {
     $hostsContent = Get-Content $hostsPath -ErrorAction SilentlyContinue
@@ -87,7 +89,7 @@ try {
     }
 } catch {}
 
-# 8. [REVERT TITAN] Munculkan Kembali Tombol "Update and Restart" & Settings UI
+# 9. Munculkan Kembali Tombol "Update and Restart" & Settings UI
 $uxPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer"
 if (Test-Path $uxPath) { Remove-ItemProperty -Path $uxPath -Name "SettingsPageVisibility" -ErrorAction SilentlyContinue }
 
@@ -98,9 +100,8 @@ foreach ($p in $auPaths) {
         Remove-ItemProperty -Path $p -Name "NoAUShutdownOption" -ErrorAction SilentlyContinue
     }
 }
-Write-Host "Tombol Update & Settings UI telah dikembalikan." -ForegroundColor Green
 
-# 9. Menjalankan Layanan Utama
+# 10. Menjalankan Layanan Utama
 try { Start-Service -Name "wuauserv" -ErrorAction SilentlyContinue } catch {}
 
 Write-Host "`nPROSES SELESAI. Windows Update telah normal kembali 100%!" -ForegroundColor Green
