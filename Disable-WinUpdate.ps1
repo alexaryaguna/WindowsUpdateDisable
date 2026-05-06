@@ -73,7 +73,7 @@ $sys32 = "$env:SystemRoot\System32"
 foreach ($exe in $executables) {
     $target = "$sys32\$exe"
     if (Test-Path $target) {
-        takeown.exe /F $target /A /runas | Out-Null
+        takeown.exe /F $target /A | Out-Null
         icacls.exe $target /grant "Administrators:F" /q | Out-Null
         try { Rename-Item -Path $target -NewName "$exe.bak" -Force -ErrorAction SilentlyContinue } catch {}
     }
@@ -88,7 +88,7 @@ $upgraderPaths = @("$env:SystemDrive\Windows10Upgrade", "$env:SystemDrive\Window
 foreach ($dir in $upgraderPaths) {
     $app = "$dir\Windows10UpgraderApp.exe"
     if (Test-Path $app) {
-        takeown.exe /F $app /A /runas | Out-Null
+        takeown.exe /F $app /A | Out-Null
         icacls.exe $app /grant "Administrators:F" /q | Out-Null
         try { Rename-Item -Path $app -NewName "Windows10UpgraderApp.exe.bak" -Force -ErrorAction SilentlyContinue } catch {}
     }
@@ -100,7 +100,7 @@ $blockDomains = @("v4.windowsupdate.microsoft.com", "v10.events.data.microsoft.c
 try {
     $hostsContent = Get-Content $hostsPath -Raw -ErrorAction SilentlyContinue
     foreach ($domain in $blockDomains) {
-        if ($hostsContent -notmatch $domain) { Add-Content -Path $hostsPath -Value "0.0.0.0 $domain # Blocked by Disable-WinUpdate" -Force }
+        if ($hostsContent -notmatch $domain) { Add-Content -Path $hostsPath -Value "0.0.0.0 $domain # Blocked by Disable-WinUpdate" -Force -ErrorAction SilentlyContinue }
     }
 } catch {}
 
