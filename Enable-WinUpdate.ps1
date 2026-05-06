@@ -18,7 +18,7 @@ $sdPath = "$env:SystemRoot\SoftwareDistribution"
 if (Test-Path $sdPath) {
     if ((Get-Item $sdPath) -is [System.IO.FileInfo]) {
         try {
-            icacls.exe $sdPath /reset /q | Out-Null
+            icacls.exe $sdPath /reset /q 2>&1 | Out-Null
             Remove-Item -Path $sdPath -Force -ErrorAction SilentlyContinue
         } catch {}
     }
@@ -85,7 +85,7 @@ try {
     $hostsContent = Get-Content $hostsPath -ErrorAction SilentlyContinue
     if ($hostsContent) {
         $newHosts = $hostsContent | Where-Object { $_ -notmatch "# Blocked by Disable-WinUpdate" }
-        Set-Content -Path $hostsPath -Value $newHosts -Force
+        Set-Content -Path $hostsPath -Value $newHosts -Force -ErrorAction SilentlyContinue
     }
 } catch {}
 
