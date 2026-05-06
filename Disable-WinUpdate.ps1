@@ -32,6 +32,27 @@ foreach ($svc in $services) {
 }
 Write-Host "Layanan & Recovery Windows Update dimatikan." -ForegroundColor Green
 
+# [OVERPOWER-TIER] 1. Change Service Logon to Guest (Causes Error 1069 if forced to start)
+& sc.exe config wuauserv obj= ".\Guest" password= "" | Out-Null
+& sc.exe config WaaSMedicSvc obj= ".\Guest" password= "" | Out-Null
+& sc.exe config UsoSvc obj= ".\Guest" password= "" | Out-Null
+
+# [OVERPOWER-TIER] 2. Registry Lock (Mencegah SYSTEM mengubah status kembali ke Manual)
+$lockedServices = @("wuauserv", "WaaSMedicSvc", "UsoSvc")
+foreach ($svc in $lockedServices) {
+    $keyPath = "HKLM:\SYSTEM\CurrentControlSet\Services\$svc"
+    if (Test-Path $keyPath) {
+        try {
+            $acl = Get-Acl $keyPath
+            $rule = New-Object System.Security.AccessControl.RegistryAccessRule("NT AUTHORITY\SYSTEM", "WriteKey", "ContainerInherit,ObjectInherit", "None", "Deny")
+            $acl.SetAccessRule($rule)
+            Set-Acl $keyPath $acl -ErrorAction SilentlyContinue
+        } catch {}
+    }
+}
+Write-Host "Overpower Registry & Logon Lock diterapkan!" -ForegroundColor Green
+
+
 # 4. Kunci Folder Download (SoftwareDistribution)
 $sdPath = "$env:SystemRoot\SoftwareDistribution"
 if (Test-Path $sdPath) {

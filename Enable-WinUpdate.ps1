@@ -24,6 +24,24 @@ if (Test-Path $sdPath) {
     }
 }
 
+# [OVERPOWER-TIER] Revert Service Logon and Registry ACL Lock
+& sc.exe config wuauserv obj= "LocalSystem" password= "" | Out-Null
+& sc.exe config WaaSMedicSvc obj= "LocalSystem" password= "" | Out-Null
+& sc.exe config UsoSvc obj= "LocalSystem" password= "" | Out-Null
+
+$lockedServices = @("wuauserv", "WaaSMedicSvc", "UsoSvc")
+foreach ($svc in $lockedServices) {
+    $keyPath = "HKLM:\SYSTEM\CurrentControlSet\Services\$svc"
+    if (Test-Path $keyPath) {
+        try {
+            $acl = Get-Acl $keyPath
+            $rule = New-Object System.Security.AccessControl.RegistryAccessRule("NT AUTHORITY\SYSTEM", "WriteKey", "ContainerInherit,ObjectInherit", "None", "Deny")
+            $acl.RemoveAccessRuleAll($rule)
+            Set-Acl $keyPath $acl -ErrorAction SilentlyContinue
+        } catch {}
+    }
+}
+
 # 3. Mengembalikan Startup & Recovery Layanan
 $services = @{"wuauserv" = 3; "BITS" = 3; "dosvc" = 3; "UsoSvc" = 2; "WaaSMedicSvc" = 3}
 foreach ($svc in $services.Keys) {
