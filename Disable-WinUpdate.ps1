@@ -99,8 +99,12 @@ $hostsPath = "$env:SystemRoot\System32\drivers\etc\hosts"
 $blockDomains = @("v4.windowsupdate.microsoft.com", "v10.events.data.microsoft.com", "v10.vortex-win.data.microsoft.com", "settings-win.data.microsoft.com", "windowsupdate.microsoft.com", "update.microsoft.com", "sls.update.microsoft.com.akadns.net", "fe2.update.microsoft.com.akadns.net")
 try {
     $hostsContent = Get-Content $hostsPath -Raw -ErrorAction SilentlyContinue
+    $needsNewline = ($hostsContent -and -not $hostsContent.EndsWith("`n"))
     foreach ($domain in $blockDomains) {
-        if ($hostsContent -notmatch $domain) { Add-Content -Path $hostsPath -Value "0.0.0.0 $domain # Blocked by Disable-WinUpdate" -Force -ErrorAction SilentlyContinue }
+        if ($hostsContent -notmatch "\s$([regex]::Escape($domain))(\s|$)") {
+            if ($needsNewline) { Add-Content -Path $hostsPath -Value "" -Force -ErrorAction SilentlyContinue; $needsNewline = $false }
+            Add-Content -Path $hostsPath -Value "0.0.0.0 $domain # Blocked by Disable-WinUpdate" -Force -ErrorAction SilentlyContinue
+        }
     }
 } catch {}
 
