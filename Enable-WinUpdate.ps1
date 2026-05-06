@@ -84,7 +84,15 @@ $hostsPath = "$env:SystemRoot\System32\drivers\etc\hosts"
 try {
     $hostsContent = Get-Content $hostsPath -ErrorAction SilentlyContinue
     if ($hostsContent) {
-        $newHosts = $hostsContent | Where-Object { $_ -notmatch "# Blocked by Disable-WinUpdate" }
+        $newHosts = @()
+        foreach ($line in $hostsContent) {
+            if ($line -match "# Blocked by Disable-WinUpdate") {
+                $cleaned = $line -replace "(?i)\s*0\.0\.0\.0\s+[a-zA-Z0-9.-]+\s+# Blocked by Disable-WinUpdate", ""
+                if (-not [string]::IsNullOrWhiteSpace($cleaned)) { $newHosts += $cleaned }
+            } else {
+                $newHosts += $line
+            }
+        }
         Set-Content -Path $hostsPath -Value $newHosts -Force -ErrorAction SilentlyContinue
     }
 } catch {}
