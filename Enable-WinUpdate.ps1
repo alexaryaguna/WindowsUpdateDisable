@@ -99,19 +99,20 @@ foreach ($dir in $upgraderPaths) {
 
 # 8. Memulihkan File Hosts
 $hostsPath = "$env:SystemRoot\System32\drivers\etc\hosts"
+$hostsBlockStart = "# BEGIN Disable-WinUpdate"
+$hostsBlockEnd = "# END Disable-WinUpdate"
 try {
-    $hostsContent = Get-Content $hostsPath -ErrorAction SilentlyContinue
-    if ($hostsContent) {
-        $newHosts = @()
-        foreach ($line in $hostsContent) {
-            if ($line -match "# Blocked by Disable-WinUpdate") {
-                $cleaned = $line -replace "(?i)\s*0\.0\.0\.0\s+[a-zA-Z0-9.-]+\s+# Blocked by Disable-WinUpdate", ""
-                if (-not [string]::IsNullOrWhiteSpace($cleaned)) { $newHosts += $cleaned }
-            } else {
-                $newHosts += $line
+    if (Test-Path $hostsPath) {
+        $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+        $hostsContent = [System.IO.File]::ReadAllText($hostsPath, $utf8NoBom)
+        $blockPattern = "(?ms)\r?\n?$([regex]::Escape($hostsBlockStart)).*?$([regex]::Escape($hostsBlockEnd))\r?\n?"
+        $updatedHosts = [regex]::Replace($hostsContent, $blockPattern, "`r`n")
+        if ($updatedHosts -ne $hostsContent) {
+            if ($updatedHosts -and -not $updatedHosts.EndsWith("`r`n")) {
+                $updatedHosts += "`r`n"
             }
+            [System.IO.File]::WriteAllText($hostsPath, $updatedHosts, $utf8NoBom)
         }
-        Set-Content -Path $hostsPath -Value $newHosts -Force -ErrorAction SilentlyContinue
     }
 } catch {}
 

@@ -9,6 +9,7 @@ Berbeda dengan cara biasa, script ini memblokir Windows dari segala arah agar ti
 - **Anti Pemulihan Otomatis (Anti Self-Healing):** Menghapus kemampuan Windows untuk menghidupkan kembali layanan update secara otomatis.
 - **Pengunci Gudang Download:** Menghancurkan dan mengunci paksa folder tempat Windows meletakkan file update (`SoftwareDistribution`), sehingga tidak ada ruang untuk mendownload.
 - **Blackhole & Firewall Block:** Memutus jalur koneksi internet ke server Microsoft (membuat servernya seolah-olah "nyasar") dan menahannya di Firewall bawaan.
+- **Hosts yang Aman:** Baris `hosts` yang ditambahkan skrip diberi penanda khusus, jadi isi `hosts` lama tetap aman dan mudah dibersihkan saat enable.
 - **Sembunyikan Tombol Update:** Menghilangkan menu Windows Update dari Pengaturan (Settings) dan menghapus tombol "Update and Restart" berwarna oranye di Start Menu.
 - **Microsoft Store Auto-Update Blocker:** Mencegah Windows mengunduh pembaruan komponen sistem secara diam-diam melalui jalur belakang aplikasi Microsoft Store.
 - **Pembungkam Notifikasi Total:** Menghilangkan semua peringatan, pop-up, tanda seru, dan pesan yang mengganggu terkait hilangnya Windows Update.

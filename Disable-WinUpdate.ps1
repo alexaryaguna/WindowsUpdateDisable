@@ -118,15 +118,24 @@ foreach ($dir in $upgraderPaths) {
 # 8. Memblokir Server via File Hosts
 $hostsPath = "$env:SystemRoot\System32\drivers\etc\hosts"
 $blockDomains = @("v4.windowsupdate.microsoft.com", "v10.events.data.microsoft.com", "v10.vortex-win.data.microsoft.com", "settings-win.data.microsoft.com", "windowsupdate.microsoft.com", "update.microsoft.com", "sls.update.microsoft.com.akadns.net", "fe2.update.microsoft.com.akadns.net")
+$hostsBlockStart = "# BEGIN Disable-WinUpdate"
+$hostsBlockEnd = "# END Disable-WinUpdate"
 try {
-    $hostsContent = Get-Content $hostsPath -Raw -ErrorAction SilentlyContinue
-    $needsNewline = ($hostsContent -and -not $hostsContent.EndsWith("`n"))
-    foreach ($domain in $blockDomains) {
-        if ($hostsContent -notmatch "\s$([regex]::Escape($domain))(\s|$)") {
-            if ($needsNewline) { Add-Content -Path $hostsPath -Value "" -Force -ErrorAction SilentlyContinue; $needsNewline = $false }
-            Add-Content -Path $hostsPath -Value "0.0.0.0 $domain # Blocked by Disable-WinUpdate" -Force -ErrorAction SilentlyContinue
-        }
+    $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+    $hostsContent = if (Test-Path $hostsPath) {
+        [System.IO.File]::ReadAllText($hostsPath, $utf8NoBom)
+    } else {
+        ""
     }
+    $blockPattern = "(?ms)\r?\n?$([regex]::Escape($hostsBlockStart)).*?$([regex]::Escape($hostsBlockEnd))\r?\n?"
+    $hostsContent = [regex]::Replace($hostsContent, $blockPattern, "`r`n")
+
+    $managedBlock = @($hostsBlockStart) + ($blockDomains | ForEach-Object { "0.0.0.0 $_ # Blocked by Disable-WinUpdate" }) + @($hostsBlockEnd) -join "`r`n"
+    if ($hostsContent -and -not $hostsContent.EndsWith("`r`n")) {
+        $hostsContent += "`r`n"
+    }
+    $hostsContent += $managedBlock + "`r`n"
+    [System.IO.File]::WriteAllText($hostsPath, $hostsContent, $utf8NoBom)
 } catch {}
 
 # 9. Hilangkan Tombol Update di UI & Menu Start
